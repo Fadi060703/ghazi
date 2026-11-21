@@ -15,6 +15,7 @@ type TableProps = {
   records: CompanyRecord[];
   date: string;
   editable?: boolean;
+  allowCreate?: boolean;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -22,7 +23,7 @@ type TableProps = {
   onDayChanged: (date: string) => void;
 };
 
-export function RecordsTable({ records, date, editable = false, loading, error, onRetry, onChanged, onDayChanged }: TableProps) {
+export function RecordsTable({ records, date, editable = false, allowCreate = editable, loading, error, onRetry, onChanged, onDayChanged }: TableProps) {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [fields, setFields] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -32,7 +33,8 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
   const firstInput = useRef<HTMLSelectElement | null>(null);
   const addButton = useRef<HTMLButtonElement | null>(null);
   const identifier = useId();
-  const columnCount = editable ? 15 : 14;
+  const hasActions = editable || allowCreate || Boolean(entry);
+  const columnCount = hasActions ? 15 : 14;
   const totals = totalAmounts(records);
   const changedDay = Boolean(entry && entry.recordDate !== date);
 
@@ -63,7 +65,7 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
   }
 
   async function save() {
-    if (!entry || submitting.current || changedDay || loading || error) return;
+    if (!entry || submitting.current || changedDay || loading || error || (!entry.original && !allowCreate)) return;
     setSaveError(null);
     try {
       validateRecord(entry.values);
@@ -79,7 +81,7 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
     try {
       const result = await requestJson<{ record: CompanyRecord }>(entry.original ? `/api/records/${entry.original.id}` : "/api/records", {
         method: entry.original ? "PATCH" : "POST",
-        body: JSON.stringify({ ...entry.values, recordDate: entry.recordDate, requestId: entry.requestId, version: entry.original?.version }),
+        body: JSON.stringify({ ...entry.values, recordDate: entry.recordDate, entryMode: editable ? "today" : "selected", requestId: entry.requestId, version: entry.original?.version }),
       });
       setEntry(null);
       onChanged(`تم ${entry.original ? "تعديل" : "حفظ"} السجل رقم ${result.record.id}.`);
@@ -168,7 +170,7 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
         {MONEY_FIELDS.map((field) => input(field.key, field.label, true))}
         <td className={`money-cell net-cell${preview !== null && preview < 0 ? " negative" : ""}`}><output aria-label="الصافي المحسوب" aria-live="polite"><bdi dir="ltr">{preview === null ? "—" : formatMoney(preview)}</bdi></output></td>
         <td className="actions-cell">
-          <button type="button" className="icon-button save-button" aria-label={busy ? "جارٍ حفظ السجل" : "حفظ السجل"} title="حفظ (Enter)" disabled={busy || changedDay || loading || Boolean(error)} onClick={() => void save()}><Icon name="check" /></button>
+          <button type="button" className="icon-button save-button" aria-label={busy ? "جارٍ حفظ السجل" : "حفظ السجل"} title="حفظ (Enter)" disabled={busy || changedDay || loading || Boolean(error) || (!entry.original && !allowCreate)} onClick={() => void save()}><Icon name="check" /></button>
           <button type="button" className="icon-button" aria-label="إلغاء الإدخال" title="إلغاء (Escape)" disabled={busy} onClick={cancel}><Icon name="close" /></button>
         </td>
       </tr>
@@ -180,14 +182,14 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
       <div className="table-toolbar">
         <div><h2>{editable ? "سجلات اليوم" : "سجلات اليوم المحدد"}</h2><p>{formatDate(date, true)} <span className="separator">/</span> {loading ? "جارٍ التحميل…" : error ? "غير متاح" : `عدد السجلات: ${records.length}`}</p></div>
         <div className="table-toolbar-right">
-          <span className="status-label"><span className={`status-dot${entry ? " drafting" : ""}`} />{busy ? deleteTarget ? "جارٍ الحذف…" : "جارٍ الحفظ…" : loading ? "جارٍ التحميل…" : error ? "خطأ في الاتصال" : entry ? "وضع الإدخال" : editable ? "جاهز للإدخال" : "السجلات السابقة للعرض فقط"}</span>
+          <span className="status-label"><span className={`status-dot${entry ? " drafting" : ""}`} />{busy ? deleteTarget ? "جارٍ الحذف…" : "جارٍ الحفظ…" : loading ? "جارٍ التحميل…" : error ? "خطأ في الاتصال" : entry ? "وضع الإدخال" : allowCreate ? "جاهز للإدخال" : "للعرض فقط"}</span>
           <button type="button" className="button button-light" disabled={loading || busy || Boolean(error) || records.length === 0} aria-label={`طباعة سجلات ${formatDate(date, true)}`} title="معاينة طباعة سجلات هذا اليوم" onClick={() => window.open(`/print?date=${encodeURIComponent(date)}`, "_blank", "noopener,noreferrer")}><Icon name="print" /> طباعة</button>
           <button type="button" className="icon-button" onClick={onRetry} disabled={loading || busy} aria-label="تحديث السجلات" title="تحديث السجلات"><Icon name="refresh" /></button>
         </div>
       </div>
       {error && <div className="alert alert-error" role="alert">{error} <button type="button" className="text-button" onClick={onRetry}>إعادة المحاولة</button></div>}
       {saveError && <div className="alert alert-error" role="alert">{saveError}</div>}
-      {changedDay && <div className="alert alert-warning" role="alert">أصبح تاريخ العمل {formatDate(date, true)}. احتفظنا بالقيم التي أدخلتها. {entry?.original ? "السجلات السابقة للعرض فقط؛ ألغِ هذا التعديل للمتابعة." : <button type="button" className="text-button" disabled={busy} onClick={() => { setEntry((current) => current ? { ...current, recordDate: date, requestId: crypto.randomUUID(), submitted: false } : null); setSaveError(null); }}>استخدام تاريخ اليوم</button>}</div>}
+      {changedDay && <div className="alert alert-warning" role="alert">{editable ? "أصبح تاريخ العمل" : "تغيّر التاريخ المحدد إلى"} {formatDate(date, true)}. احتفظنا بالقيم التي أدخلتها. {entry?.original ? "السجلات السابقة للعرض فقط؛ ألغِ هذا التعديل للمتابعة." : <button type="button" className="text-button" disabled={busy || !allowCreate} onClick={() => { setEntry((current) => current ? { ...current, recordDate: date, requestId: crypto.randomUUID(), submitted: false } : null); setSaveError(null); }}>{editable ? "استخدام تاريخ اليوم" : "استخدام التاريخ المحدد"}</button>}</div>}
       {entry && <div className="entry-help"><Icon name="edit" /><span>{entry.original ? `تعديل السجل رقم ${entry.original.id}` : "صف جديد"} — أدخل البيانات في الجدول ثم اضغط Enter أو علامة الصح للحفظ. اضغط Escape للإلغاء.</span></div>}
       {deleteTarget && <div className="delete-confirmation" role="alert"><span>هل تريد حذف السجل <strong><bdi dir="ltr">#{deleteTarget.id}</bdi></strong> الخاص بالتاجر <bdi>{deleteTarget.merchantName}</bdi>؟ لا يمكن التراجع عن الحذف.</span><div><button type="button" className="button button-danger" disabled={busy} onClick={() => void remove()}>{busy ? "جارٍ الحذف…" : "حذف السجل"}</button><button type="button" className="button button-light" disabled={busy} onClick={() => { setDeleteTarget(null); setSaveError(null); }}>الاحتفاظ بالسجل</button></div></div>}
       <div className="table-scroll" role="region" aria-label={editable ? "جدول سجلات اليوم" : "جدول سجلات اليوم المحدد"} tabIndex={0} aria-busy={loading}>
@@ -199,11 +201,11 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
             {TEXT_FIELDS.map((field) => <th scope="col" key={field.key}>{field.label}</th>)}
             {MONEY_FIELDS.map((field) => <th scope="col" key={field.key} className="money-cell">{field.label}</th>)}
             <th scope="col" className="money-cell net-cell">صافي <span className="calculated-label">محسوب تلقائياً</span></th>
-            {editable && <th scope="col" className="actions-cell">إجراءات</th>}
+            {hasActions && <th scope="col" className="actions-cell">إجراءات</th>}
           </tr></thead>
           <tbody>
             {loading && <tr><td colSpan={columnCount} className="empty-cell"><span className="loading-dot" /> جارٍ تحميل السجلات…</td></tr>}
-            {!loading && !error && records.length === 0 && <tr><td colSpan={columnCount} className="empty-cell"><div className="empty-state"><span className="empty-icon"><Icon name="table" width="25" height="25" /></span><strong>{editable ? "لا توجد سجلات لليوم بعد." : "لا توجد سجلات لهذا التاريخ."}</strong><span>{editable ? "اضغط على صف الإضافة (+) أدناه لإدخال أول سجل." : "اختر يوماً آخر من التقويم لعرض سجلاته."}</span></div></td></tr>}
+            {!loading && !error && records.length === 0 && <tr><td colSpan={columnCount} className="empty-cell"><div className="empty-state"><span className="empty-icon"><Icon name="table" width="25" height="25" /></span><strong>{editable ? "لا توجد سجلات لليوم بعد." : "لا توجد سجلات لهذا التاريخ."}</strong><span>{allowCreate ? "اضغط على صف الإضافة (+) أدناه لإدخال أول سجل." : "اختر يوماً آخر من التقويم لعرض سجلاته."}</span></div></td></tr>}
             {!loading && !error && records.map((record) => entry?.original?.id === record.id ? <Fragment key={record.id}>{entryRow()}</Fragment> : (
               <tr key={record.id}>
                 <td className="sticky-id record-id"><bdi dir="ltr">#{record.id}</bdi></td>
@@ -212,13 +214,14 @@ export function RecordsTable({ records, date, editable = false, loading, error, 
                 {MONEY_FIELDS.map((field) => <td key={field.key} className={`money-cell${record[field.key] === 0 ? " zero-value" : ""}`}><bdi dir="ltr">{formatMoney(record[field.key])}</bdi></td>)}
                 <td className={`money-cell net-cell${calculateNet(record) < 0 ? " negative" : ""}`}><bdi dir="ltr">{formatMoney(calculateNet(record))}</bdi></td>
                 {editable && <td className="actions-cell"><button type="button" className="icon-button" aria-label={`تعديل السجل رقم ${record.id}`} title="تعديل الصف" disabled={Boolean(entry) || busy || Boolean(deleteTarget)} onClick={() => start(record)}><Icon name="edit" /></button><button type="button" className="icon-button delete-button" aria-label={`حذف السجل رقم ${record.id}`} title="حذف الصف" disabled={Boolean(entry) || busy || Boolean(deleteTarget)} onClick={() => { setSaveError(null); setDeleteTarget(record); }}><Icon name="trash" /></button></td>}
+                {!editable && hasActions && <td className="actions-cell" />}
               </tr>
             ))}
             {entry && !entry.original && entryRow()}
             {entry?.original && (loading || error || !records.some((record) => record.id === entry.original?.id)) && entryRow()}
-            {editable && !entry && <tr className="add-record-row"><td colSpan={columnCount}><button ref={addButton} type="button" className="add-record-button" disabled={loading || Boolean(error) || busy || Boolean(deleteTarget)} onClick={() => start()}><span className="add-circle"><Icon name="plus" width="20" height="20" /></span><span>إضافة سجل <span className="add-hint">أدخل البيانات مباشرة في الجدول</span></span></button></td></tr>}
+            {allowCreate && !entry && <tr className="add-record-row"><td colSpan={columnCount}><button ref={addButton} type="button" className="add-record-button" disabled={loading || Boolean(error) || busy || Boolean(deleteTarget)} onClick={() => start()}><span className="add-circle"><Icon name="plus" width="20" height="20" /></span><span>إضافة سجل <span className="add-hint">أدخل البيانات مباشرة في الجدول</span></span></button></td></tr>}
           </tbody>
-          {!loading && !error && records.length > 0 && <tfoot><tr><th scope="row" colSpan={5}>مجموع اليوم <span className="totals-count">عدد السجلات: {records.length}</span></th>{MONEY_FIELDS.map((field) => <td key={field.key} className="money-cell"><bdi dir="ltr">{formatMoney(totals[field.key])}</bdi></td>)}<td className={`money-cell net-cell${totals.net < 0n ? " negative" : ""}`}><bdi dir="ltr">{formatMoney(totals.net)}</bdi></td>{editable && <td />}</tr></tfoot>}
+          {!loading && !error && records.length > 0 && <tfoot><tr><th scope="row" colSpan={5}>مجموع اليوم <span className="totals-count">عدد السجلات: {records.length}</span></th>{MONEY_FIELDS.map((field) => <td key={field.key} className="money-cell"><bdi dir="ltr">{formatMoney(totals[field.key])}</bdi></td>)}<td className={`money-cell net-cell${totals.net < 0n ? " negative" : ""}`}><bdi dir="ltr">{formatMoney(totals.net)}</bdi></td>{hasActions && <td />}</tr></tfoot>}
         </table>
       </div>
       <div className="table-footnote"><span>الصافي = المقبوض − مجموع الرسوم السبعة</span><span>المبالغ بمنزلتين عشريتين <span className="separator">·</span> مرّر الجدول أفقياً لعرض جميع الأعمدة</span></div>

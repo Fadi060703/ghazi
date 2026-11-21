@@ -84,9 +84,9 @@ export function RecordsApp({ initialToday, timeZone }: { initialToday: string; t
         </section>
         <section id="calendar-panel" role="tabpanel" aria-labelledby="calendar-tab" hidden={tab !== "calendar"}>
           <RecordsCalendar selectedDate={selectedDate} today={today} counts={calendar.data?.counts ?? {}} loading={calendar.loading} error={calendar.error} onChange={setSelectedDate} onRetry={retry} />
-          <RecordsTable records={archive.data?.records ?? []} date={selectedDate} loading={archive.loading} error={archive.error} onRetry={retry} onChanged={changed} onDayChanged={setToday} />
+          <RecordsTable records={archive.data?.records ?? []} date={selectedDate} allowCreate={selectedDate <= today} loading={archive.loading} error={archive.error} onRetry={retry} onChanged={changed} onDayChanged={setToday} />
         </section>
-        <footer className="site-footer"><span>شركة غازي درويش <span className="separator">/</span> سجل واضح لكل يوم.</span><span>سجلات اليوم للإدخال، والتقويم لمراجعة السجلات السابقة.</span></footer>
+        <footer className="site-footer"><span>شركة غازي درويش <span className="separator">/</span> سجل واضح لكل يوم.</span><span>سجلات اليوم للإدخال، والتقويم لإضافة ومراجعة سجلات الأيام السابقة.</span></footer>
       </main>
     </div>
   );

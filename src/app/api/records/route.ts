@@ -25,8 +25,11 @@ export async function POST(request: Request) {
     if (typeof input.requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.requestId)) {
       throw new RecordError(400, "INVALID_REQUEST_ID", "ابدأ صفاً جديداً قبل الحفظ.");
     }
+    if (input.entryMode !== undefined && input.entryMode !== "today" && input.entryMode !== "selected") {
+      throw new RecordError(400, "INVALID_ENTRY_MODE", "اختر تاريخ الإدخال من سجلات الشركة.");
+    }
     const context = businessContext();
-    const record = getRecordStore().create(values, input.recordDate, input.requestId, context.today);
+    const record = getRecordStore().create(values, input.recordDate, input.requestId, context.today, input.entryMode === "selected");
     return jsonResponse({ record, ...context }, 201);
   } catch (error) {
     return errorResponse(error);

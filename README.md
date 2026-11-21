@@ -12,7 +12,7 @@ The records interface is Arabic, right-to-left, and permanently dark. It uses th
 - NET updates automatically as received money minus all seven fees, including the three separate PrivateFees amounts. NET cannot be edited.
 - Press **Enter** or click the **checkmark** to save. Press **Escape** or click **×** to cancel. Failed saves keep entered values.
 - Edit today's records using the pencil icon; delete using the trash icon and the explicit confirmation bar.
-- **Calendar:** choose day, month, and year, or click a date. Days with saved records show a count. The selected day's table and totals appear below the calendar. Historical records are read-only.
+- **Calendar:** choose day, month, and year, or click a date. Days with saved records show a count. The selected day's table and totals appear below the calendar. Use the **+** row to add a record for the selected date, including previous days. Future dates do not allow entry. Existing historical records cannot be edited or deleted.
 - Calendar keyboard controls: arrow keys move by day/week, Home/End move within the week, and Page Up/Page Down move by month.
 
 The app starts with no saved records. It does not add sample company data. Monetary inputs accept Western and Arabic digits, including `١٢٣٫٤٥`. Monetary values use two decimal places and no currency symbol; the business currency can be agreed separately.
@@ -87,7 +87,7 @@ npm test
 npm run build
 ```
 
-The automated checks cover exact monetary arithmetic, the NET formula, date boundaries, input validation, database persistence, record-type validation, legacy database migration, Arabic monetary input, retrying saves, concurrent edits, and read-only archive behavior. They use temporary or in-memory databases and do not touch the company database. Browser interaction and visual layout still need to be checked with the running app.
+The automated checks cover exact monetary arithmetic, the NET formula, date boundaries, input validation, database persistence, record-type validation, legacy database migration, Arabic monetary input, retrying saves, concurrent edits, past-date creation, future-date rejection, and protection against editing/deleting historical records. They use temporary or in-memory databases and do not touch the company database. Browser interaction and visual layout still need to be checked with the running app.
 
 ## Configuration and database
 
@@ -102,7 +102,7 @@ RECORDS_DATABASE_PATH=./data/records.sqlite
 - `RECORDS_DATABASE_PATH` selects the persistent SQLite file. Relative paths are resolved from the project directory; an absolute path is also supported.
 - The database, table, and date index are created automatically on the first records request. When an older database has no `type` column, a transactional migration adds it and classifies its existing records as **استيراد**, as approved. Existing IDs, dates, text, amounts, versions, and timestamps are preserved. Save-retry fingerprints are upgraded in the same transaction. Repeated startup does not reclassify records or repeat the migration.
 - Amounts are stored as integer minor units; daily totals use exact integer arithmetic. Individual amounts are limited to `9,999,999,999.99`.
-- New records receive their ID and business date from the server. If midnight passes while a row is being entered, the app keeps its values and asks the user to review and use the new date.
+- New records receive their ID from the server. Today's Records uses the current business date; Calendar entries use the selected date, validated by the server as today or earlier. If midnight passes during today's entry, or the calendar selection changes during entry, the app keeps the draft and asks the user to confirm the new date before saving.
 - Creation retries use a request ID to avoid inserting the same submitted row twice. Record versions prevent one window from silently overwriting a newer edit from another window.
 - Database files are ignored by Git. Keep the selected database path on persistent storage.
 

@@ -23,6 +23,10 @@ Daily printing is implemented for today and calendar-selected dates. The separat
 
 Yearly statistics is implemented at `/statistics`, linked from the records header. A year selector from 2026 through the existing 2100 date limit shows only import and export record counts for the full selected year, initially using the current business year. The read-only statistics endpoint aggregates saved records by their business date and current type. Loading/errors stay distinct from zero, and counts refresh on focus or manually. Tests cover supported years, year boundaries, leap days, empty years, and changes after retries, edits, and deletion. No packages or schema changes were added; validation remains user-run.
 
+## Past-date entry update
+
+Calendar now permits adding records for the selected date when it is today or earlier. Future-date creation is rejected by the server. Existing historical records remain protected from editing and deletion. Today's entry retains its midnight rollover confirmation; changing calendar dates retains the draft and requires explicit confirmation of the new date. No schema migration or new dependency is required. Automated checks and browser validation remain user-run. This update supersedes the original calendar read-only/add-today-only requirements below.
+
 ## Approved Defaults
 
 - **NET:** received money minus all seven fees, calculated automatically.

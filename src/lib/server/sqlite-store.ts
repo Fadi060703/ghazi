@@ -100,7 +100,7 @@ export class RecordStore {
     };
   }
 
-  create(values: RecordValues, date: string, requestId: string, today: string): CompanyRecord {
+  create(values: RecordValues, date: string, requestId: string, today: string, allowPast = false): CompanyRecord {
     return this.transaction(() => {
       const fingerprint = JSON.stringify([date, ...valueColumns.map((column) => values[column as keyof RecordValues])]);
       const existing = this.database.prepare("SELECT id, requestFingerprint FROM records WHERE requestId = ?").get(requestId);
@@ -110,7 +110,10 @@ export class RecordStore {
         }
         return this.find(Number(existing.id));
       }
-      if (date !== today) {
+      if (date > today) {
+        throw new RecordError(400, "FUTURE_DATE", "لا يمكن إضافة سجلات لتاريخ مستقبلي.");
+      }
+      if (date !== today && !allowPast) {
         throw new RecordError(409, "DAY_CHANGED", "تغيّر تاريخ العمل. راجع الصف واستخدم التاريخ الجديد قبل الحفظ.", today);
       }
       const timestamp = new Date().toISOString();

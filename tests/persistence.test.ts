@@ -56,6 +56,30 @@ test("retrying a save creates only one row and refuses token reuse with differen
   }
 });
 
+test("calendar entry allows past dates, rejects future dates, and keeps archives immutable", () => {
+  const store = new RecordStore(":memory:");
+  try {
+    const date = "2026-09-30";
+    const requestId = randomUUID();
+    const record = store.create(values(), date, requestId, today, true);
+    assert.equal(record.recordDate, date);
+    assert.deepEqual(store.list(date), [record]);
+    assert.deepEqual(store.counts("2026-09"), { [date]: 1 });
+    assert.deepEqual(store.yearlyCounts(2026), { import: 1, export: 0 });
+    assert.equal(store.create(values(), date, requestId, today, true).id, record.id);
+    assert.equal(store.list(date).length, 1);
+    assert.throws(() => store.create(values("2000.00"), date, requestId, today, true), hasCode("REQUEST_REUSED"));
+    assert.throws(() => store.create(values(), date, randomUUID(), today), hasCode("DAY_CHANGED"));
+    for (const allowPast of [true, false]) {
+      assert.throws(() => store.create(values(), "2026-10-02", randomUUID(), today, allowPast), hasCode("FUTURE_DATE"));
+    }
+    assert.throws(() => store.update(record.id, values(), record.version, today), hasCode("READ_ONLY_DATE"));
+    assert.throws(() => store.delete(record.id, record.version, today), hasCode("READ_ONLY_DATE"));
+  } finally {
+    store.close();
+  }
+});
+
 test("updates detect concurrent edits, archived records are read-only, and IDs are not reused", () => {
   const store = new RecordStore(":memory:");
   try {

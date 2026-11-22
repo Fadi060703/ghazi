@@ -146,8 +146,8 @@ export class RecordStore {
   }
 
   private checkMutable(record: CompanyRecord, version: number, today: string) {
-    if (record.recordDate !== today) {
-      throw new RecordError(409, "READ_ONLY_DATE", "السجلات السابقة للعرض فقط. حدّث الجدول لعرض سجلات اليوم.", today);
+    if (record.recordDate > today) {
+      throw new RecordError(409, "READ_ONLY_DATE", "لا يمكن تعديل أو حذف سجلات بتاريخ مستقبلي.", today);
     }
     if (record.version !== version) {
       throw new RecordError(409, "RECORD_CHANGED", "عُدّل هذا السجل في نافذة أخرى. ألغِ التعديل وحدّث الجدول قبل المحاولة مجدداً.");

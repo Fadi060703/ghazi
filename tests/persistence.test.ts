@@ -56,7 +56,7 @@ test("retrying a save creates only one row and refuses token reuse with differen
   }
 });
 
-test("calendar entry allows past dates, rejects future dates, and keeps archives immutable", () => {
+test("calendar entry allows past-date editing and deletion, but rejects future dates", () => {
   const store = new RecordStore(":memory:");
   try {
     const date = "2026-09-30";
@@ -73,14 +73,24 @@ test("calendar entry allows past dates, rejects future dates, and keeps archives
     for (const allowPast of [true, false]) {
       assert.throws(() => store.create(values(), "2026-10-02", randomUUID(), today, allowPast), hasCode("FUTURE_DATE"));
     }
-    assert.throws(() => store.update(record.id, values(), record.version, today), hasCode("READ_ONLY_DATE"));
-    assert.throws(() => store.delete(record.id, record.version, today), hasCode("READ_ONLY_DATE"));
+    const updated = store.update(record.id, { ...values("2000.00"), type: "export" }, record.version, today);
+    assert.equal(updated.recordDate, date);
+    assert.equal(updated.receivedMoney, 200000);
+    assert.equal(updated.version, record.version + 1);
+    assert.deepEqual(store.list(date), [updated]);
+    assert.deepEqual(store.yearlyCounts(2026), { import: 0, export: 1 });
+    assert.throws(() => store.update(record.id, values(), record.version, today), hasCode("RECORD_CHANGED"));
+    assert.throws(() => store.delete(record.id, record.version, today), hasCode("RECORD_CHANGED"));
+    store.delete(updated.id, updated.version, today);
+    assert.deepEqual(store.list(date), []);
+    assert.deepEqual(store.counts("2026-09"), {});
+    assert.deepEqual(store.yearlyCounts(2026), { import: 0, export: 0 });
   } finally {
     store.close();
   }
 });
 
-test("updates detect concurrent edits, archived records are read-only, and IDs are not reused", () => {
+test("updates detect concurrent edits, remain editable after midnight, and IDs are not reused", () => {
   const store = new RecordStore(":memory:");
   try {
     const original = store.create(values(), today, randomUUID(), today);
@@ -89,14 +99,28 @@ test("updates detect concurrent edits, archived records are read-only, and IDs a
     assert.equal(updated.type, "export");
     assert.equal(updated.version, 2);
     assert.throws(() => store.update(original.id, values(), original.version, today), hasCode("RECORD_CHANGED"));
-    assert.throws(() => store.delete(updated.id, updated.version, "2026-10-02"), hasCode("READ_ONLY_DATE"));
-    assert.throws(() => store.update(updated.id, values(), updated.version, "2026-10-02"), hasCode("READ_ONLY_DATE"));
-    store.delete(updated.id, updated.version, today);
+    const nextDayUpdate = store.update(updated.id, values(), updated.version, "2026-10-02");
+    assert.equal(nextDayUpdate.recordDate, today);
+    assert.equal(nextDayUpdate.version, 3);
+    store.delete(nextDayUpdate.id, nextDayUpdate.version, "2026-10-02");
     assert.deepEqual(store.list(today), []);
     assert.deepEqual(store.counts("2026-10"), {});
     assert.throws(() => store.update(updated.id, values(), updated.version, today), hasCode("NOT_FOUND"));
     const replacement = store.create(values(), today, randomUUID(), today);
     assert.ok(replacement.id > original.id);
+  } finally {
+    store.close();
+  }
+});
+
+test("future-dated records cannot be edited or deleted", () => {
+  const store = new RecordStore(":memory:");
+  try {
+    const futureDate = "2026-10-02";
+    const record = store.create(values(), futureDate, randomUUID(), futureDate);
+    assert.throws(() => store.update(record.id, values(), record.version, today), hasCode("READ_ONLY_DATE"));
+    assert.throws(() => store.delete(record.id, record.version, today), hasCode("READ_ONLY_DATE"));
+    assert.deepEqual(store.list(futureDate), [record]);
   } finally {
     store.close();
   }

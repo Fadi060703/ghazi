@@ -11,8 +11,8 @@ The records interface is Arabic, right-to-left, and permanently dark. It uses th
 - Enter the product type, merchant name, car number, received money, and fees. Blank fee cells count as zero. Car numbers are text so leading zeros are preserved.
 - NET updates automatically as received money minus all seven fees, including the three separate PrivateFees amounts. NET cannot be edited.
 - Press **Enter** or click the **checkmark** to save. Press **Escape** or click **×** to cancel. Failed saves keep entered values.
-- Edit today's records using the pencil icon; delete using the trash icon and the explicit confirmation bar.
-- **Calendar:** choose day, month, and year, or click a date. Days with saved records show a count. The selected day's table and totals appear below the calendar. Use the **+** row to add a record for the selected date, including previous days. Future dates do not allow entry. Existing historical records cannot be edited or deleted.
+- Edit today's or previous days' records using the pencil icon; delete using the trash icon and the explicit confirmation bar.
+- **Calendar:** choose day, month, and year, or click a date. Days with saved records show a count. The selected day's table and totals appear below the calendar. Use the **+** row to add a record for the selected date, including previous days. Use the pencil and trash icons to edit or delete existing historical records. Future dates do not allow entry, editing, or deletion.
 - Calendar keyboard controls: arrow keys move by day/week, Home/End move within the week, and Page Up/Page Down move by month.
 
 The app starts with no saved records. It does not add sample company data. Monetary inputs accept Western and Arabic digits, including `١٢٣٫٤٥`. Monetary values use two decimal places and no currency symbol; the business currency can be agreed separately.
@@ -87,7 +87,7 @@ npm test
 npm run build
 ```
 
-The automated checks cover exact monetary arithmetic, the NET formula, date boundaries, input validation, database persistence, record-type validation, legacy database migration, Arabic monetary input, retrying saves, concurrent edits, past-date creation, future-date rejection, and protection against editing/deleting historical records. They use temporary or in-memory databases and do not touch the company database. Browser interaction and visual layout still need to be checked with the running app.
+The automated checks cover exact monetary arithmetic, the NET formula, date boundaries, input validation, database persistence, record-type validation, legacy database migration, Arabic monetary input, retrying saves, concurrent edits, past-date creation, future-date rejection, past-date editing/deletion with version-conflict checks, and protection against editing/deleting future-dated records. They use temporary or in-memory databases and do not touch the company database. Browser interaction and visual layout still need to be checked with the running app.
 
 ## Configuration and database
 

@@ -15,6 +15,7 @@ type TableProps = {
   records: CompanyRecord[];
   date: string;
   editable?: boolean;
+  entryMode?: "today" | "selected";
   allowCreate?: boolean;
   loading: boolean;
   error: string | null;
@@ -23,7 +24,7 @@ type TableProps = {
   onDayChanged: (date: string) => void;
 };
 
-export function RecordsTable({ records, date, editable = false, allowCreate = editable, loading, error, onRetry, onChanged, onDayChanged }: TableProps) {
+export function RecordsTable({ records, date, editable = false, entryMode = "today", allowCreate = editable, loading, error, onRetry, onChanged, onDayChanged }: TableProps) {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [fields, setFields] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
     try {
       const result = await requestJson<{ record: CompanyRecord }>(entry.original ? `/api/records/${entry.original.id}` : "/api/records", {
         method: entry.original ? "PATCH" : "POST",
-        body: JSON.stringify({ ...entry.values, recordDate: entry.recordDate, entryMode: editable ? "today" : "selected", requestId: entry.requestId, version: entry.original?.version }),
+        body: JSON.stringify({ ...entry.values, recordDate: entry.recordDate, entryMode, requestId: entry.requestId, version: entry.original?.version }),
       });
       setEntry(null);
       onChanged(`تم ${entry.original ? "تعديل" : "حفظ"} السجل رقم ${result.record.id}.`);
@@ -180,7 +181,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
   return (
     <div className="surface records-surface">
       <div className="table-toolbar">
-        <div><h2>{editable ? "سجلات اليوم" : "سجلات اليوم المحدد"}</h2><p>{formatDate(date, true)} <span className="separator">/</span> {loading ? "جارٍ التحميل…" : error ? "غير متاح" : `عدد السجلات: ${records.length}`}</p></div>
+        <div><h2>{entryMode === "today" ? "سجلات اليوم" : "سجلات اليوم المحدد"}</h2><p>{formatDate(date, true)} <span className="separator">/</span> {loading ? "جارٍ التحميل…" : error ? "غير متاح" : `عدد السجلات: ${records.length}`}</p></div>
         <div className="table-toolbar-right">
           <span className="status-label"><span className={`status-dot${entry ? " drafting" : ""}`} />{busy ? deleteTarget ? "جارٍ الحذف…" : "جارٍ الحفظ…" : loading ? "جارٍ التحميل…" : error ? "خطأ في الاتصال" : entry ? "وضع الإدخال" : allowCreate ? "جاهز للإدخال" : "للعرض فقط"}</span>
           <button type="button" className="button button-light" disabled={loading || busy || Boolean(error) || records.length === 0} aria-label={`طباعة سجلات ${formatDate(date, true)}`} title="معاينة طباعة سجلات هذا اليوم" onClick={() => window.open(`/print?date=${encodeURIComponent(date)}`, "_blank", "noopener,noreferrer")}><Icon name="print" /> طباعة</button>
@@ -189,10 +190,10 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
       </div>
       {error && <div className="alert alert-error" role="alert">{error} <button type="button" className="text-button" onClick={onRetry}>إعادة المحاولة</button></div>}
       {saveError && <div className="alert alert-error" role="alert">{saveError}</div>}
-      {changedDay && <div className="alert alert-warning" role="alert">{editable ? "أصبح تاريخ العمل" : "تغيّر التاريخ المحدد إلى"} {formatDate(date, true)}. احتفظنا بالقيم التي أدخلتها. {entry?.original ? "السجلات السابقة للعرض فقط؛ ألغِ هذا التعديل للمتابعة." : <button type="button" className="text-button" disabled={busy || !allowCreate} onClick={() => { setEntry((current) => current ? { ...current, recordDate: date, requestId: crypto.randomUUID(), submitted: false } : null); setSaveError(null); }}>{editable ? "استخدام تاريخ اليوم" : "استخدام التاريخ المحدد"}</button>}</div>}
+      {changedDay && <div className="alert alert-warning" role="alert">{entryMode === "today" ? "أصبح تاريخ العمل" : "تغيّر التاريخ المحدد إلى"} {formatDate(date, true)}. احتفظنا بالقيم التي أدخلتها. {entry?.original ? "ألغِ هذا التعديل ثم اختر تاريخ السجل من التقويم للمتابعة." : <button type="button" className="text-button" disabled={busy || !allowCreate} onClick={() => { setEntry((current) => current ? { ...current, recordDate: date, requestId: crypto.randomUUID(), submitted: false } : null); setSaveError(null); }}>{entryMode === "today" ? "استخدام تاريخ اليوم" : "استخدام التاريخ المحدد"}</button>}</div>}
       {entry && <div className="entry-help"><Icon name="edit" /><span>{entry.original ? `تعديل السجل رقم ${entry.original.id}` : "صف جديد"} — أدخل البيانات في الجدول ثم اضغط Enter أو علامة الصح للحفظ. اضغط Escape للإلغاء.</span></div>}
       {deleteTarget && <div className="delete-confirmation" role="alert"><span>هل تريد حذف السجل <strong><bdi dir="ltr">#{deleteTarget.id}</bdi></strong> الخاص بالتاجر <bdi>{deleteTarget.merchantName}</bdi>؟ لا يمكن التراجع عن الحذف.</span><div><button type="button" className="button button-danger" disabled={busy} onClick={() => void remove()}>{busy ? "جارٍ الحذف…" : "حذف السجل"}</button><button type="button" className="button button-light" disabled={busy} onClick={() => { setDeleteTarget(null); setSaveError(null); }}>الاحتفاظ بالسجل</button></div></div>}
-      <div className="table-scroll" role="region" aria-label={editable ? "جدول سجلات اليوم" : "جدول سجلات اليوم المحدد"} tabIndex={0} aria-busy={loading}>
+      <div className="table-scroll" role="region" aria-label={entryMode === "today" ? "جدول سجلات اليوم" : "جدول سجلات اليوم المحدد"} tabIndex={0} aria-busy={loading}>
         <table className="records-table">
           <caption className="sr-only">سجلات الشركة بتاريخ {formatDate(date)} مع جميع الرسوم والصافي المحسوب.</caption>
           <thead><tr>
@@ -205,7 +206,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
           </tr></thead>
           <tbody>
             {loading && <tr><td colSpan={columnCount} className="empty-cell"><span className="loading-dot" /> جارٍ تحميل السجلات…</td></tr>}
-            {!loading && !error && records.length === 0 && <tr><td colSpan={columnCount} className="empty-cell"><div className="empty-state"><span className="empty-icon"><Icon name="table" width="25" height="25" /></span><strong>{editable ? "لا توجد سجلات لليوم بعد." : "لا توجد سجلات لهذا التاريخ."}</strong><span>{allowCreate ? "اضغط على صف الإضافة (+) أدناه لإدخال أول سجل." : "اختر يوماً آخر من التقويم لعرض سجلاته."}</span></div></td></tr>}
+            {!loading && !error && records.length === 0 && <tr><td colSpan={columnCount} className="empty-cell"><div className="empty-state"><span className="empty-icon"><Icon name="table" width="25" height="25" /></span><strong>{entryMode === "today" ? "لا توجد سجلات لليوم بعد." : "لا توجد سجلات لهذا التاريخ."}</strong><span>{allowCreate ? "اضغط على صف الإضافة (+) أدناه لإدخال أول سجل." : "اختر يوماً آخر من التقويم لعرض سجلاته."}</span></div></td></tr>}
             {!loading && !error && records.map((record) => entry?.original?.id === record.id ? <Fragment key={record.id}>{entryRow()}</Fragment> : (
               <tr key={record.id}>
                 <td className="sticky-id record-id"><bdi dir="ltr">#{record.id}</bdi></td>

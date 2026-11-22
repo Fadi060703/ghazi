@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PrintControls } from "@/components/print-controls";
 import { formatDate, isBusinessDate } from "@/lib/business-date";
-import { calculateNet, formatMoney, MONEY_FIELDS } from "@/lib/money";
+import { calculateNet, formatMoney, VISIBLE_MONEY_FIELDS } from "@/lib/money";
 import { recordTypeLabel, TEXT_FIELDS } from "@/lib/records";
 import type { CompanyRecord } from "@/lib/records";
 import { getRecordStore } from "@/lib/server/database";
@@ -48,7 +48,7 @@ export default async function PrintPage({ searchParams }: { searchParams: Promis
               <th scope="col">تسلسي</th>
               <th scope="col">نوع البيان</th>
               {TEXT_FIELDS.map((field) => <th key={field.key} scope="col">{field.label}</th>)}
-              {MONEY_FIELDS.map((field) => <th key={field.key} scope="col">{field.label}</th>)}
+              {VISIBLE_MONEY_FIELDS.map((field) => <th key={field.key} scope="col">{field.label}</th>)}
               <th scope="col">صافي</th>
             </tr>
           </thead>
@@ -58,7 +58,7 @@ export default async function PrintPage({ searchParams }: { searchParams: Promis
                 <td><bdi dir="ltr">#{record.id}</bdi></td>
                 <td>{recordTypeLabel(record.type)}</td>
                 {TEXT_FIELDS.map((field) => <td key={field.key}><bdi dir="auto">{record[field.key]}</bdi></td>)}
-                {MONEY_FIELDS.map((field) => <td key={field.key}><bdi dir="ltr">{formatMoney(record[field.key])}</bdi></td>)}
+                {VISIBLE_MONEY_FIELDS.map((field) => <td key={field.key}><bdi dir="ltr">{formatMoney(record[field.key])}</bdi></td>)}
                 <td><bdi dir="ltr">{formatMoney(calculateNet(record))}</bdi></td>
               </tr>
             ))}

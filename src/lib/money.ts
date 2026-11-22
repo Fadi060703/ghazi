@@ -9,6 +9,9 @@ export const MONEY_FIELDS = [
   { key: "privateFees3", label: "خاصة 3" },
 ] as const;
 
+// Keep the third private fee in storage and calculations for existing records.
+export const VISIBLE_MONEY_FIELDS = MONEY_FIELDS.filter((field) => field.key !== "privateFees3");
+
 export type MoneyField = (typeof MONEY_FIELDS)[number]["key"];
 export type MoneyAmounts = Record<MoneyField, number>;
 export const MAX_AMOUNT = 999_999_999_999;

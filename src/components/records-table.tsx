@@ -4,7 +4,7 @@ import { Fragment, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { formatDate } from "@/lib/business-date";
 import { ClientRequestError, requestJson } from "@/lib/client-api";
-import { calculateNet, formatMoney, MONEY_FIELDS, parseMoney, totalAmounts } from "@/lib/money";
+import { calculateNet, formatMoney, MONEY_FIELDS, parseMoney, totalAmounts, VISIBLE_MONEY_FIELDS } from "@/lib/money";
 import type { MoneyAmounts } from "@/lib/money";
 import { emptyDraft, RecordValidationError, recordToDraft, RECORD_TYPES, recordTypeLabel, TEXT_FIELDS, validateRecord } from "@/lib/records";
 import type { CompanyRecord, FieldErrors, RecordDraft } from "@/lib/records";
@@ -34,7 +34,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
   const addButton = useRef<HTMLButtonElement | null>(null);
   const identifier = useId();
   const hasActions = editable || allowCreate || Boolean(entry);
-  const columnCount = hasActions ? 15 : 14;
+  const columnCount = 6 + VISIBLE_MONEY_FIELDS.length + Number(hasActions);
   const totals = totalAmounts(records);
   const changedDay = Boolean(entry && entry.recordDate !== date);
 
@@ -167,7 +167,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
           {fields.type && <span id={`${identifier}-type`} className="field-error">{fields.type}</span>}
         </td>
         {TEXT_FIELDS.map((field) => input(field.key, field.label, false, field.maxLength))}
-        {MONEY_FIELDS.map((field) => input(field.key, field.label, true))}
+        {VISIBLE_MONEY_FIELDS.map((field) => input(field.key, field.label, true))}
         <td className={`money-cell net-cell${preview !== null && preview < 0 ? " negative" : ""}`}><output aria-label="الصافي المحسوب" aria-live="polite"><bdi dir="ltr">{preview === null ? "—" : formatMoney(preview)}</bdi></output></td>
         <td className="actions-cell">
           <button type="button" className="icon-button save-button" aria-label={busy ? "جارٍ حفظ السجل" : "حفظ السجل"} title="حفظ (Enter)" disabled={busy || changedDay || loading || Boolean(error) || (!entry.original && !allowCreate)} onClick={() => void save()}><Icon name="check" /></button>
@@ -199,7 +199,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
             <th scope="col" className="sticky-id">تسلسي</th>
             <th scope="col">نوع البيان</th>
             {TEXT_FIELDS.map((field) => <th scope="col" key={field.key}>{field.label}</th>)}
-            {MONEY_FIELDS.map((field) => <th scope="col" key={field.key} className="money-cell">{field.label}</th>)}
+            {VISIBLE_MONEY_FIELDS.map((field) => <th scope="col" key={field.key} className="money-cell">{field.label}</th>)}
             <th scope="col" className="money-cell net-cell">صافي <span className="calculated-label">محسوب تلقائياً</span></th>
             {hasActions && <th scope="col" className="actions-cell">إجراءات</th>}
           </tr></thead>
@@ -211,7 +211,7 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
                 <td className="sticky-id record-id"><bdi dir="ltr">#{record.id}</bdi></td>
                 <td><span className={`type-badge type-${record.type}`}>{recordTypeLabel(record.type)}</span></td>
                 {TEXT_FIELDS.map((field) => <td key={field.key} className={field.key === "merchantName" ? "merchant-cell" : "text-cell"}><bdi dir="auto">{record[field.key]}</bdi></td>)}
-                {MONEY_FIELDS.map((field) => <td key={field.key} className={`money-cell${record[field.key] === 0 ? " zero-value" : ""}`}><bdi dir="ltr">{formatMoney(record[field.key])}</bdi></td>)}
+                {VISIBLE_MONEY_FIELDS.map((field) => <td key={field.key} className={`money-cell${record[field.key] === 0 ? " zero-value" : ""}`}><bdi dir="ltr">{formatMoney(record[field.key])}</bdi></td>)}
                 <td className={`money-cell net-cell${calculateNet(record) < 0 ? " negative" : ""}`}><bdi dir="ltr">{formatMoney(calculateNet(record))}</bdi></td>
                 {editable && <td className="actions-cell"><button type="button" className="icon-button" aria-label={`تعديل السجل رقم ${record.id}`} title="تعديل الصف" disabled={Boolean(entry) || busy || Boolean(deleteTarget)} onClick={() => start(record)}><Icon name="edit" /></button><button type="button" className="icon-button delete-button" aria-label={`حذف السجل رقم ${record.id}`} title="حذف الصف" disabled={Boolean(entry) || busy || Boolean(deleteTarget)} onClick={() => { setSaveError(null); setDeleteTarget(record); }}><Icon name="trash" /></button></td>}
                 {!editable && hasActions && <td className="actions-cell" />}
@@ -221,10 +221,10 @@ export function RecordsTable({ records, date, editable = false, allowCreate = ed
             {entry?.original && (loading || error || !records.some((record) => record.id === entry.original?.id)) && entryRow()}
             {allowCreate && !entry && <tr className="add-record-row"><td colSpan={columnCount}><button ref={addButton} type="button" className="add-record-button" disabled={loading || Boolean(error) || busy || Boolean(deleteTarget)} onClick={() => start()}><span className="add-circle"><Icon name="plus" width="20" height="20" /></span><span>إضافة سجل <span className="add-hint">أدخل البيانات مباشرة في الجدول</span></span></button></td></tr>}
           </tbody>
-          {!loading && !error && records.length > 0 && <tfoot><tr><th scope="row" colSpan={5}>مجموع اليوم <span className="totals-count">عدد السجلات: {records.length}</span></th>{MONEY_FIELDS.map((field) => <td key={field.key} className="money-cell"><bdi dir="ltr">{formatMoney(totals[field.key])}</bdi></td>)}<td className={`money-cell net-cell${totals.net < 0n ? " negative" : ""}`}><bdi dir="ltr">{formatMoney(totals.net)}</bdi></td>{hasActions && <td />}</tr></tfoot>}
+          {!loading && !error && records.length > 0 && <tfoot><tr><th scope="row" colSpan={5}>مجموع اليوم <span className="totals-count">عدد السجلات: {records.length}</span></th>{VISIBLE_MONEY_FIELDS.map((field) => <td key={field.key} className="money-cell"><bdi dir="ltr">{formatMoney(totals[field.key])}</bdi></td>)}<td className={`money-cell net-cell${totals.net < 0n ? " negative" : ""}`}><bdi dir="ltr">{formatMoney(totals.net)}</bdi></td>{hasActions && <td />}</tr></tfoot>}
         </table>
       </div>
-      <div className="table-footnote"><span>الصافي = المقبوض − مجموع الرسوم السبعة</span><span>المبالغ بمنزلتين عشريتين <span className="separator">·</span> مرّر الجدول أفقياً لعرض جميع الأعمدة</span></div>
+      <div className="table-footnote"><span>الصافي = المقبوض − مجموع الرسوم (بما فيها الرسوم الخاصة الثالثة المحفوظة سابقاً)</span><span>المبالغ بمنزلتين عشريتين <span className="separator">·</span> مرّر الجدول أفقياً لعرض جميع الأعمدة</span></div>
     </div>
   );
 }
